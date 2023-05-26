@@ -1,12 +1,24 @@
 #!/bin/bash
 
+# Load the config file if provided
+CONFIG_FILE="$1"
+
+if [[ -n "${CONFIG_FILE}" ]]; then
+    if [[ -f "${CONFIG_FILE}" ]]; then
+        source "${CONFIG_FILE}"
+    else
+        echo "Config file ${CONFIG_FILE} not found. Exiting."
+        exit 1
+    fi
+fi
+
 # Main backup directory
-MAIN_BACKUP_DIR="/mnt/remote/backups"
-LOG_FILE="/var/log/kvm_backup.log"
-MAX_JOBS=$(nproc)
+MAIN_BACKUP_DIR="${MAIN_BACKUP_DIR:-/mnt/remote/backups}"
+LOG_FILE="${LOG_FILE:-/var/log/kvm_backup.log}"
+MAX_JOBS="${MAX_JOBS:-$(nproc)}"
 
 # Lock file
-LOCKFILE="/var/lock/$(basename $0)"
+LOCKFILE="${LOCKFILE:-/var/lock/$(basename $0)}"
 
 # Function to log messages
 log() {
@@ -22,6 +34,7 @@ fi
 # Make sure the lockfile is removed when we exit and when we receive a signal
 trap "rm -f ${LOCKFILE}; exit" INT TERM EXIT
 echo $$ > ${LOCKFILE}
+
 # Function to perform backup
 backup() {
     VM=$1
