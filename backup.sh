@@ -32,12 +32,17 @@ if [ -e ${LOCKFILE} ] && kill -0 `cat ${LOCKFILE}`; then
 fi
 
 # Make sure the lockfile is removed when we exit and when we receive a signal
-trap "rm -f ${LOCKFILE}; exit" INT TERM EXIT
+CURRENT_VM=""
+CURRENT_DISK_TYPE=""
+
+trap 'if [[ -n $CURRENT_VM ]] && [[ -n $CURRENT_DISK_TYPE ]]; then virsh blockcommit ${CURRENT_VM} ${CURRENT_DISK_TYPE} --active --verbose --pivot; fi; status=$?; rm -f ${LOCKFILE}; exit $status' INT TERM EXIT ERR
+
 echo $$ > ${LOCKFILE}
 
 # Function to perform backup
 backup() {
     VM=$1
+    CURRENT_VM=$VM
 
     # Exclude VMs with prefix "Test" and "test"
     if [[ ${VM} =~ ^(Test|test).* ]]; then
@@ -48,6 +53,7 @@ backup() {
     # Check the disk spec
     DISK_PATH=$(virsh domblklist ${VM} --details | grep 'disk' | awk '{print $4}')
     DISK_TYPE=$(virsh domblklist ${VM} --details | grep 'disk' | awk '{print $3}')
+    CURRENT_DISK_TYPE=${DISK_TYPE}
 
     # If disk type is not detected properly, skip the VM
     if [[ -z "${DISK_TYPE}" ]]; then
@@ -85,6 +91,7 @@ backup() {
             rm -f ${SNAPSHOT_PATH}
 
             log "Backup of $VM completed."
+            CURRENT_VM=""
         else
             log "Failed to create a snapshot of $VM."
         fi
